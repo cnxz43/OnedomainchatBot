@@ -2,6 +2,13 @@
 
 ## 启动java 启动django 启动redis 
 
+```
+cd ../OneDomainchatBot
+python manager runserver
+
+cd ../OneDomainchatBot
+java -jar autoRobot-1.0-SNAPSHOT-jar-with-dependencies.jar
+```
 ## 1. 知识库
 
 ```

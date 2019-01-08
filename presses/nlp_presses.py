@@ -29,11 +29,12 @@ uncut_path = project_dir + "/static/uncut_dict"
 with open(uncut_path, 'w') as uncutFile:
     for i in range(len(question_list)):
         if i != 0:
-            uncutFile.write(question_list[i] + ' ' + '20000' + '\n')
+            str_ = question_list[i].strip()
+            uncutFile.write(str_ + ' ' + '20000' + '\n')
 
 # # 添加自定义词
 # jieba.add_word(word, freq=None, tag=None)
-# # 添加自定义词典
+# 添加自定义词典
 jieba.load_userdict(project_dir + "/static/uncut_dict")
 
 # 添加建议词
@@ -244,24 +245,42 @@ def go_to_knowladge(seq, seg_list):
 
     error_list = question_list[1:]
     solution_list = knowledge_sheet.col_values(1)[1:]
-    print(error_list)
-    print(solution_list)
+    # print(error_list)
+    # print(solution_list)
     result = []
 
-    for w in seg_list:
-        for i in range(len(error_list)):
-            if error_list[i] == w:
-                result.append(solution_list[i])
+    # 直接匹配整段
+    for i in range(len(error_list)):
+        # print(error_list[i], seq)
+        str_ = error_list[i].strip()
+        if str_ == seq:
+            result.append(solution_list[i])
+
+    # 匹配uncut 切分之后的内容：
     if result == []:
-        for i in range(len(error_list)):
-            if error_list[i] == seq:
-                result.append(solution_list[i])
+        for w in seg_list:
+            for i in range(len(error_list)):
+                str_ = error_list[i].strip()
+                if str_ == w:
+                    result.append(solution_list[i])
+
+    # 查询关键词对应的问题：
+    if result == []:
+        for w in seg_list:
+            for i in range(len(error_list)):
+                if w in error_list[i]:
+                    str_ = error_list[i].strip()
+                    result.append(str_+"\n\n")
+
     # print(result)
     if result == []:
-        result = '知识库中没有答案！'
+        result = '我还没学会这个*_*'
     else:
-        result = result[0]
-    return result
+        # result = result[0]
+        result_str = "您可能要问：\n\n"
+        for res in result:
+            result_str +=  res
+    return result_str
 
 
 
@@ -284,14 +303,10 @@ def re_to_api(nature_seq):
         code = 1
         #result = {'value':'','time':'2018-10-24 17:49:50'}
         result = go_to_timedtask(seq, seg_list)
-
-    elif intent == 'knowledge_domin':
+    else:
         code = 1
         result = go_to_knowladge(seq,seg_list)
 
-    else:
-        code = 0
-        result = ''
 
 
     result_dict = {'code':code, 'content':str(result), 'sentence':nature_seq}
