@@ -13,6 +13,7 @@ import string
 import sys
 import re
 from presses import cennect_redis
+import random
 
 project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 print(project_dir)
@@ -39,6 +40,11 @@ jieba.load_userdict(project_dir + "/static/uncut_dict")
 
 # 添加建议词
 # jieba.suggest_freq(('今天','天气'), True)
+
+# 加载停用词
+filepath = project_dir + "/static/stoplist_utf8.txt"
+stopwords  = [line.strip() for line in open(filepath, 'r', encoding='utf-8').readlines()]
+
 
 
 
@@ -75,6 +81,10 @@ def get_intent(seq):
 def analysis_intent(seq, seg_list):
     print("---analysis_intent---")
 
+
+    # 综合服务；
+    common_intent = ['天气','限行']
+
     # key value存取redis
     kv_os_intent = ['PUT','GET']
 
@@ -82,7 +92,7 @@ def analysis_intent(seq, seg_list):
     timed_task_intent = ['AT']
 
 
-    # 家客错误:
+    # 专业知识:
     knowledge_intent = question_list[1:]
 
 
@@ -101,7 +111,9 @@ def analysis_intent(seq, seg_list):
             # 定时任务
             elif w in timed_task_intent:
                 intent = 'timed_domain'
-
+            # 综合常识
+            elif w in common_intent:
+                intent = 'common_domain'
             # 家客知识库
             elif w in knowledge_intent:
                 intent = 'knowledge_domin'
@@ -242,7 +254,7 @@ def go_to_timedtask(seq, seg_list):
 
 def go_to_knowladge(seq, seg_list):
     print("---go_to_knowladge---")
-
+    tag = 0
     error_list = question_list[1:]
     solution_list = knowledge_sheet.col_values(1)[1:]
     # print(error_list)
@@ -255,6 +267,7 @@ def go_to_knowladge(seq, seg_list):
         str_ = error_list[i].strip()
         if str_ == seq:
             result.append(solution_list[i])
+            tag = 1
 
     # 匹配uncut 切分之后的内容：
     if result == []:
@@ -263,23 +276,32 @@ def go_to_knowladge(seq, seg_list):
                 str_ = error_list[i].strip()
                 if str_ == w:
                     result.append(solution_list[i])
+                    tag = 2
 
     # 查询关键词对应的问题：
     if result == []:
         for w in seg_list:
-            for i in range(len(error_list)):
-                if w in error_list[i]:
-                    str_ = error_list[i].strip()
-                    result.append(str_+"\n\n")
+            if w not in stopwords:
+                for i in range(len(error_list)):
+                    if w in error_list[i]:
+                        str_ = error_list[i].strip()
+                        result.append(str_+"\n\n")
+                        tag = 3
 
-    # print(result)
-    if result == []:
-        result = '我还没学会这个*_*'
-    else:
+    print(result)
+    if tag == 0:
+        result_str = '我还没学会这个*_*'
+    elif tag == 1:
+        result_str = result[0]
+    elif tag == 2:
+        result_str = "您可能要找的是：\n\n" + result[0]
+    elif tag == 3:
         # result = result[0]
         result_str = "您可能要问：\n\n"
-        for res in result:
-            result_str +=  res
+        rdm_list = list(range(len(result)))
+        random.shuffle(rdm_list)
+        for res in rdm_list[:10]:
+            result_str +=  result[res]
     return result_str
 
 
@@ -303,6 +325,9 @@ def re_to_api(nature_seq):
         code = 1
         #result = {'value':'','time':'2018-10-24 17:49:50'}
         result = go_to_timedtask(seq, seg_list)
+    elif intent == "common_domain":
+        code = 0
+        result = ''
     else:
         code = 1
         result = go_to_knowladge(seq,seg_list)
@@ -310,6 +335,7 @@ def re_to_api(nature_seq):
 
 
     result_dict = {'code':code, 'content':str(result), 'sentence':nature_seq}
+    print(result_dict)
     return result_dict
 
 
